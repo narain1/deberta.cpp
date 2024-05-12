@@ -160,6 +160,42 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
     hparams.layer_norm_eps = get_f32(ctx_gguf, "layer_norm_eps");
 
     if (verbose >= 1) {
+      fprintf(stderr, "%s: MODEL\n". __func__);
+      fprintf(stderr, "%s: n_vocab  = %d\n", __func__, hparams.n_vocab);
+      fprintf(stderr, "%s: n_max_tokens  = %d\n", __func__, hparams.n_max_tokens);
+      fprintf(stderr, "%s: n_embd   = %d\n", __func__, hparams.n_intermediate);
+      fprintf(stderr, "%s: n_head = %d\n", __func__, hparams.n_head);
+      fprintf(stderr, "%s: n_layer  = %d\n", __func__, hparams.n_layer);
+      fprintf(stderr, "%s: layer_norm_eps = %g\n", __func__, hparams.layer_norm_eps);
+      fprintf(stderr, "\n");
+    }
+  }
+
+  {
+    vocab.pad_id = get_i32(ctx_gguf, KEY_PAD_ID);
+    vocab.unk_id = get_i32(ctx_gguf, KEY_UNK_ID);
+    vocab.bos_id = get_i32(ctx_gguf, KEY_BOS_ID);
+    vocab.eos_id = get_i32(ctx_gguf, KEY_EOS_ID);
+
+    vocab.word_prefix = get_str(ctx_gguf, KEY_WORD_PREFIX);
+    vocab.subword_prefix = get_str(ctx_gguf, KEY_SUBWORD_PREFIX);
+    uint32_t word_prefix_len = vocab.word_prefix.size();
+    uint32_t subword_prefix_len = vocab.subword_prefix.size();
+
+    const int token_idx = gguf_find_key(ctx_gguf, KEY_TOKEN_LIST);
+    const int n_vocab = gguf_get_arr_n(ctx_gguf, token_idx);
+
+    for (int i=0; i < n_vocab; i++) {
+      std::string word = gguf_get_arr_str(ctx_gguf, token_idx, i);
+      vocab.tokens.push_back(word);
+
+      bool subword = (
+          (subword_prefix_len > 0 && word.find(vocab.subword_prefix) == 0) ||
+          (word_prefix_len > 0 && word.find(vocab.word_prefix) != 0) 
+          );
+
+      
+
 
   
 
