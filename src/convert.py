@@ -147,8 +147,6 @@ if __name__ == "__main__":
     tokens, scores, toktypes = extract_vocab(vocab)
 
     gguf_writer.add_token_list(tokens)
-    gguf_writer.add_token_scores(scores)
-    gguf_writer.add_token_types(toktypes)
 
     for n, p in model.items():
         if 'LayerNorm' in n or 'bias' in n:

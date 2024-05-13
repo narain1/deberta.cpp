@@ -163,7 +163,8 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
       fprintf(stderr, "%s: MODEL\n". __func__);
       fprintf(stderr, "%s: n_vocab  = %d\n", __func__, hparams.n_vocab);
       fprintf(stderr, "%s: n_max_tokens  = %d\n", __func__, hparams.n_max_tokens);
-      fprintf(stderr, "%s: n_embd   = %d\n", __func__, hparams.n_intermediate);
+      fprintf(stderr, "%s: n_embd  = %d\n", __func__, hparams.n_embd);
+      fprintf(stderr, "%s: n_intermediate   = %d\n", __func__, hparams.n_intermediate);
       fprintf(stderr, "%s: n_head = %d\n", __func__, hparams.n_head);
       fprintf(stderr, "%s: n_layer  = %d\n", __func__, hparams.n_layer);
       fprintf(stderr, "%s: layer_norm_eps = %g\n", __func__, hparams.layer_norm_eps);
@@ -177,26 +178,153 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
     vocab.bos_id = get_i32(ctx_gguf, KEY_BOS_ID);
     vocab.eos_id = get_i32(ctx_gguf, KEY_EOS_ID);
 
-    vocab.word_prefix = get_str(ctx_gguf, KEY_WORD_PREFIX);
-    vocab.subword_prefix = get_str(ctx_gguf, KEY_SUBWORD_PREFIX);
-    uint32_t word_prefix_len = vocab.word_prefix.size();
-    uint32_t subword_prefix_len = vocab.subword_prefix.size();
-
     const int token_idx = gguf_find_key(ctx_gguf, KEY_TOKEN_LIST);
     const int n_vocab = gguf_get_arr_n(ctx_gguf, token_idx);
 
     for (int i=0; i < n_vocab; i++) {
       std::string word = gguf_get_arr_str(ctx_gguf, token_idx, i);
       vocab.tokens.push_back(word);
+      vocab.token_to_id[word] = i;
+      vocab.id_to_token[i] = word;
+    }
 
-      bool subword = (
-          (subword_prefix_len > 0 && word.find(vocab.subword_prefix) == 0) ||
-          (word_prefix_len > 0 && word.find(vocab.word_prefix) != 0) 
-          );
+    if (verbose >= 1) {
+      fprintf(stderr, "%s: TOKENIZER\n", __func__);
+      fprintf(stderr, "%s: vocab size: %d\n", __func__, n_vocab);
+      fprintf(stderr, "%s: pad_id = %d\n", __func__, vocab.pad_id);
+      fprintf(stderr, "%s: unk_id = %d\n", __func__, vocab.unk_id);
+      fprintf(stderr, "%s: bos_id = %d\n", __func__, vocab.bos_id);
+      fprintf(stderr, "%s: eos_id = %d\n", __func__, vocab.eos_id);
+      fprintf(stderr, "\n");
+    }
+  }
 
-      
+  size_t buffer_size = 32*1024;
+  {
+    for (int i=0; i<n_tensors; ++i) {
+      const char *name = gguf_get_tensor_name(ctx_gguf, i);
+      const size_t offset = gguf_get_tensor_offfset(ctx_gguf, i);
+      struct ggml_tensor *cur = ggml_get_tensor(ctx_ggml, name);
+      size_t tensor_size = ggml_nbytes(cur);
+      buffer_size += tensor_size;
+      if (verbose >= 2) {
+        fprintf(stderr, "%s: tensor[%d]: type = %s, n_dims = %d, name = %s, offset=%zu, type=%d\n", __func__, i,
+            ggml_type_name(cur-type), ggml_n_dims(cur), cur->name, offset, cur_type);
+      }
+    }
+  }
 
+  if (!new_deberta->backend) {
+    new_deberta->backend = ggml_backend_cpu_init();
+    fprintf(stderr, "%s: using CPU backend\n", __func__);
+  }
 
-  
+  {
+    std::vector<uint8_t> read_buf;
+    struct ggml_init_params ggml_params = {
+      /* mem_size = */ (n_tensors + 1) * ggml_tensor_overhead(),
+      /* mem_buffer = */ NULL,
+      /* no_alloc = */ true,
+    };
+
+    new_deberta->ctx_data = ggml_init(ggml_params);
+    if (!new_deberta->ctx_data) {
+      fprintf(stderr, "%s: ggml_init() failed\n", __func__);
+      delete new_deberta;
+      return nullptr;
+    }
+
+    auto fin = std::ifstream(fname, std::ios::binary);
+    if (!fin) {
+      fprintf(stderr, "cannot open model file for loading tensors\n");
+      delete new_deberta;
+      return nullptr;
+    }
+
+    for (int i=0; i<n_tensors; ++i) {
+      const char *name = ggml_get_tensor_name(ctx_gguf, i);
+      struct ggml_tensor *ten = ggml_get_tensor(ctx_ggml, name);
+      struct ggml_tensor *cur = ggml_dup_tensor(new_deberta->ctx_data, ten);
+      ggml_set_name(cur, name);
+    }
+
+    new_deberta->weights_buffer = ggml_backend_alloc_buffer(new_deberta-backend, buffer_size);
+    ggml_allocr *alloc = ggml_allocr_new_from_buffer(new_deberta->weights_buffer);
+
+    for (int i=0; i < n_tensors; ++i) {
+      const char *name = gguf_get_tensor_name(ctx_gguf, i);
+      struct ggml_tensor *cur = ggml_get_tensor(new_deberta->ctx_data, name);
+      ggml_allocr_alloc(alloc, cur);
+
+      const size_t offset = gguf_get_data_offset(ctx_gguf) + gguf_get_tensor_offset(ctx_gguf, i);
+      fin.seekg(offset, std::ios::beg);
+      if (!fin) {
+        fprintf(stderr, "%s: failed to seek for tensor %s\n", __func__, name);
+        bert_free(new_deberta);
+        return nullptr;
+      }
+
+      int num_bytes = ggml_nbytes(cur);
+      if (ggml_backend_buffer_is_host(new_deberta->weights_buffer)) {
+        fin.read(reinterpret_cast<char *>(cur->data), num_bytes);
+      } else {
+        read_buf.resize(num_bytes);
+        fin.read(reinterpret_cast<char *>(read_buf.data()), num_bytes);
+        ggml_backend_tensor_set(cur, read_buf.data(), 0, num_bytes);
+      }
+    }
+
+    ggml_allocr_free(alloc);
+  }
+
+  {
+    model.word_embeddings = get_tensor(new_deberta->ctx_data, "deberta.embeddings.word_embeddings.weight");
+    model.position_embeddings = get_tensor(new_deberta->ctx_data, "deberta.embeddings.position_embeddings.weight");
+    model.ln_e_w = get_tensor(new_deberta->ctx_data, "deberta.embeddings.LayerNorm.weight");
+    model.ln_e_b = get_tensor(new_deberta->ctx_data, "deberta.embeddings.LayerNorm.bias");
+
+    model.layers.resize(hparams.n_layer);
+    for (int i=0; i<hparams.n_layer; ++i) {
+      deberta_layer &layer = model.layers[i];
+      std::string pre = "deberta.encoder.layer." + std::to_string(i) + ".";
+
+      layer.q_w = get_tensor(new_deberta->ctx_data, pre + "attention.self.query_proj.weight");
+      layer.q_b = get_tensor(new_deberta->ctx_data, pre + "attention.self.query_proj.bias");
+      layer.k_w = get_tensor(new_deberta->ctx_data, pre + "attention.self.key_proj.weight");
+      layer.k_b = get_tensor(new_deberta->ctx_data, pre + "attention.self.key_proj.bias");
+      layer.v_w = get_tensor(new_deberta->ctx_data, pre + "attention.self.value_proj.weight");
+      layer.v_b = get_tensor(new_deberta->ctx_data, pre + "attention.self.value_proj.bias");
+
+      layer.o_w = get_tensor(new_deberta->ctx_data, pre + "attention.output.dense.weight");
+      layer.o_b = get_tensor(new_deberta->ctx_data, pre + "attention.output.dense.bias");
+
+      layer.ln_att_w = get_tensor(new_deberta->ctx_data, pre + "attention.output.LayerNorm.weight");
+      layer.ln_att_b = get_tensor(new_deberta->ctx_data, pre + "attention.output.LayerNorm.bias");
+
+      layer.ff_i_w = get_tensor(new_deberta->ctx_data, pre + "intermediate.dense.weight");
+      layer.ff_i_b = get_tensor(new_deberta->ctx_data, pre + "intermediate.dense.bias");
+
+      layer.ff_o_w = get_tensor(new_deberta->ctx_data, pre + "output.dense.weight");
+      layer.ff_o_b = get_tensor(new_deberta->ctx_data, pre + "output.dense.bias");
+
+      layer.ln_out_w = get_tensor(new_deberta->ctx_data, pre + "output.LayerNorm.weight");
+      layer.ln_out_b = get_tensor(new_deberta->ctx_data, pre + "output.LayerNorm.bias");
+    }
+  }
+
+  {
+    model.rel_embeddings = get_tensor(new_deberta->ctx_data, "deberta.encoder.rel_embeddings.weight");
+    model.ln_enc_w = get_tensor(new_deberta->ctx_data, "deberta.encoder.LayerNorm.weight");
+    model.ln_enc_b = get_tensor(new_deberta->ctx_data, "deberta.encoder.LayerNorm.bias");
+    model.clf_w = get_tensor(new_deberta->ctx_data, "classifier.weight");
+    model.clf_b = get_tensor(new_deberta->ctx_data, "classifier.bias");
+  }
+
+  ggml_free(ctx_ggml);
+  gguf_free(ctx_gguf);
+
+  return new_deberta;
+}
+
 
 

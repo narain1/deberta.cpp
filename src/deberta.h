@@ -81,10 +81,8 @@ struct deberta_vocab {
   std::vector<std::string> tokens;
 
   std::map<std::string, deberta_token> token_to_id;
-  std::map<std::string, deberta_token> subword_token_to_id;
 
-  std::map<deberta_token, std::string> _id_to_token;
-  std::map<deberta_token, std::string> _id_to_subword_token;
+  std::map<deberta_token, std::string> id_to_token;
 };
 
 
@@ -97,6 +95,11 @@ struct deberta_model {
   struct ggml_tensor *ln_e_b;
   
   std::vector<deberta_layer> layers;
+  struct ggml_tensor *rel_embeddings;
+  struct ggml_tensor *ln_enc_w;
+  struct ggml_tensor *ln_enc_b;
+  struct ggml_tensor *clf_w;
+  struct ggml_tensor *clf_b;
 };
 
 
