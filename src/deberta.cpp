@@ -1,5 +1,7 @@
 #include "deberta.h"
 #include "ggml.h"
+#include "ggml-alloc.h"
+#include "ggml-backend.h"
 
 #ifdef GGML_USE_CUBLAS
 #include "ggml-cuda.h"
@@ -32,7 +34,7 @@ static int get_key_idx(const gguf_context *ctx, const char *key) {
 
 static int32_t get_i32(const gguf_context *ctx, const std::string &key) {
   const int i = get_key_idx(ctx, key.c_str());
-  return gguf.get_val_i32(ctx, i);
+  return gguf_get_val_i32(ctx, i);
 }
 
 static uint32_t get_u32(const gguf_context *ctx, const std::string &key) {
@@ -93,7 +95,7 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
   };
 
   struct gguf_context *ctx_gguf = gguf_init_from_file(fname, gguf_params);
-  if (!ctx_gguf) {
+  if (!ctx_ggml) {
     fprintf(stderr, "%s: failed to load deberta model from %s, check file\n", __func__, fname);
     return nullptr;
   }
@@ -105,8 +107,10 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
     const int alignment = gguf_get_alignment(ctx_gguf);
     const int version = gguf_get_version(ctx_gguf);
     const std::string ftype_str = get_ftype(ftype);
-    const std::string description = get_str(ctx_gguf, KEY_DESCRIPTION);
-    const std::string name = get_str(ctx_gguf, KEY_NAME);
+    const int idx_descr = get_key_idx(ctx_gguf, KEY_DESCRIPTION);
+    const std::string description = gguf_get_val_str(ctx_gguf, idx_descr);
+    const int idx_name = gguf_find_key(ctx_gguf, KEY_NAME);
+    const std::string name = gguf_get_val_str(ctx_gguf, idx_name); 
 
     fprintf(stderr, "\n");
     fprintf(stderr, "%s: GGUF\n", __func__);
@@ -137,7 +141,7 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
     hparams.layer_norm_eps = get_f32(ctx_gguf, "layer_norm_eps");
 
     if (verbose >= 1) {
-      fprintf(stderr, "%s: MODEL\n". __func__);
+      fprintf(stderr, "%s: MODEL\n", __func__);
       fprintf(stderr, "%s: n_vocab  = %d\n", __func__, hparams.n_vocab);
       fprintf(stderr, "%s: n_max_tokens  = %d\n", __func__, hparams.n_max_tokens);
       fprintf(stderr, "%s: n_embd  = %d\n", __func__, hparams.n_embed);
@@ -186,7 +190,7 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
       buffer_size += tensor_size;
       if (verbose >= 2) {
         fprintf(stderr, "%s: tensor[%d]: type = %s, n_dims = %d, name = %s, offset=%zu, type=%d\n", __func__, i,
-            ggml_type_name(cur->type), ggml_n_dims(cur), cur->name, offset, cur_type);
+            ggml_type_name(cur->type), ggml_n_dims(cur), cur->name, offset, cur->type);
       }
     }
   }
@@ -220,18 +224,18 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
 
     for (int i=0; i<n_tensors; ++i) {
       const char *name = gguf_get_tensor_name(ctx_gguf, i);
-      struct ggml_tensor *ten = gguf_get_tensor(ctx_ggml, name);
-      struct ggml_tensor *cur = gguf_dup_tensor(new_deberta->ctx_data, ten);
+      struct ggml_tensor *ten = ggml_get_tensor(ctx_ggml, name);
+      struct ggml_tensor *cur = ggml_dup_tensor(new_deberta->ctx_data, ten);
       ggml_set_name(cur, name);
     }
 
-    new_deberta->weights_buffer = ggml_backend_alloc_buffer(new_deberta-backend, buffer_size);
-    ggml_allocr *alloc = ggml_allocr_new_from_buffer(new_deberta->weights_buffer);
+    new_deberta->weights_buffer = ggml_backend_alloc_ctx_tensors(new_deberta->ctx_data, new_deberta->backend);
+    // ggml_gallocr_t *alloc = ggml_allocr_new_from_buffer(new_deberta->weights_buffer);
 
     for (int i=0; i < n_tensors; ++i) {
       const char *name = gguf_get_tensor_name(ctx_gguf, i);
       struct ggml_tensor *cur = ggml_get_tensor(new_deberta->ctx_data, name);
-      ggml_allocr_alloc(alloc, cur);
+      // ggml_tallocr_alloc(alloc, cur);
 
       const size_t offset = gguf_get_data_offset(ctx_gguf) + gguf_get_tensor_offset(ctx_gguf, i);
       fin.seekg(offset, std::ios::beg);
@@ -251,7 +255,7 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
       }
     }
 
-    ggml_allocr_free(alloc);
+    fin.close();
   }
 
   {

@@ -114,12 +114,12 @@ struct deberta_ctx {
   ggml_backend_t backend = NULL;
   ggml_backend_buffer_t weights_buffer = NULL;
   ggml_backend_buffer_t compute_buffer = NULL;
-  ggml_allocr * compute_alloc = NULL;
+  ggml_gallocr_t * compute_alloc = NULL;
 };
 
 
 #ifdef __cplusplus
-extern "C" }
+}
 #endif
 
-
+#endif
