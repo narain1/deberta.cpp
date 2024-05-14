@@ -112,8 +112,8 @@ if __name__ == "__main__":
         config = json.load(f_read)
 
     print(config)
-    vocab = SentencePieceVocab(Path("../model"))
-    model = torch.load("../model/pytorch_model.bin")
+    vocab = SentencePieceVocab(Path("../models"))
+    model = torch.load("../models/pytorch_model.bin")
 
     float_type = "f32"
     qtype = GGMLQuantizationType[float_type.upper()]
