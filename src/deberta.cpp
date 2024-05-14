@@ -84,29 +84,6 @@ static size_t utf8_len(char src) {
     return lookup[highbits];
 }
 
-deberta_tokens encode(struct deberta_ctx *ctx, deberta_string text, uint64_t n_max_tokens) {
-  const deberta_vocab &vocab = ctx->vocab;
-  const deberta_token bos_id = vocab.bos_id;
-  const deberta_token eos_id = vocab.eos_id;
-  const deberta_token unk_id = vocab.unk_id;
-  deberta_tokens tokens = {};
-
-  if (text == NULL) { fprintf(stderr, "cannot encode NULL text\n"); exit(EXIT_FAILURE); }
-  if (t->sorted_vocab == NULL) {
-    deberta_vocab t->sorted_vocab = vocab->tokens;
-    std::sort(t->sorted_vocab.begin(), t->sorted_vocab.end());
-  }
-
-  std::string str_buffer;
-  str_buffer.reserve(t.max_token_length * 2 + 3);
-  size_t str_len = 0;
-  int n_tokens = 0;
-  if (vocab.bos_id) 
-    tokens.push_back(bos_id);
-  
-
-}
-
 struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
   struct ggml_context *ctx_ggml = NULL;
 
@@ -128,7 +105,7 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
     const int alignment = gguf_get_alignment(ctx_gguf);
     const int version = gguf_get_version(ctx_gguf);
     const std::string ftype_str = get_ftype(ftype);
-    const std:string description = get_str(ctx_gguf, KEY_DESCRIPTION);
+    const std::string description = get_str(ctx_gguf, KEY_DESCRIPTION);
     const std::string name = get_str(ctx_gguf, KEY_NAME);
 
     fprintf(stderr, "\n");
@@ -153,7 +130,7 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
   {
     hparams.n_vocab = get_u32(ctx_gguf, "vocab_size");
     hparams.n_max_tokens = get_u32(ctx_gguf, "max_position_embedding");
-    hparams.n_embd = get_u32(ctx_gguf, "hidden_size");
+    hparams.n_embed = get_u32(ctx_gguf, "hidden_size");
     hparams.n_intermediate = get_u32(ctx_gguf, "intermediate_size");
     hparams.n_head = get_u32(ctx_gguf, "num_attention_heads");
     hparams.n_layer = get_u32(ctx_gguf, "num_hidden_layers");
@@ -163,7 +140,7 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
       fprintf(stderr, "%s: MODEL\n". __func__);
       fprintf(stderr, "%s: n_vocab  = %d\n", __func__, hparams.n_vocab);
       fprintf(stderr, "%s: n_max_tokens  = %d\n", __func__, hparams.n_max_tokens);
-      fprintf(stderr, "%s: n_embd  = %d\n", __func__, hparams.n_embd);
+      fprintf(stderr, "%s: n_embd  = %d\n", __func__, hparams.n_embed);
       fprintf(stderr, "%s: n_intermediate   = %d\n", __func__, hparams.n_intermediate);
       fprintf(stderr, "%s: n_head = %d\n", __func__, hparams.n_head);
       fprintf(stderr, "%s: n_layer  = %d\n", __func__, hparams.n_layer);
@@ -203,13 +180,13 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
   {
     for (int i=0; i<n_tensors; ++i) {
       const char *name = gguf_get_tensor_name(ctx_gguf, i);
-      const size_t offset = gguf_get_tensor_offfset(ctx_gguf, i);
+      const size_t offset = gguf_get_tensor_offset(ctx_gguf, i);
       struct ggml_tensor *cur = ggml_get_tensor(ctx_ggml, name);
       size_t tensor_size = ggml_nbytes(cur);
       buffer_size += tensor_size;
       if (verbose >= 2) {
         fprintf(stderr, "%s: tensor[%d]: type = %s, n_dims = %d, name = %s, offset=%zu, type=%d\n", __func__, i,
-            ggml_type_name(cur-type), ggml_n_dims(cur), cur->name, offset, cur_type);
+            ggml_type_name(cur->type), ggml_n_dims(cur), cur->name, offset, cur_type);
       }
     }
   }
@@ -242,9 +219,9 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
     }
 
     for (int i=0; i<n_tensors; ++i) {
-      const char *name = ggml_get_tensor_name(ctx_gguf, i);
-      struct ggml_tensor *ten = ggml_get_tensor(ctx_ggml, name);
-      struct ggml_tensor *cur = ggml_dup_tensor(new_deberta->ctx_data, ten);
+      const char *name = gguf_get_tensor_name(ctx_gguf, i);
+      struct ggml_tensor *ten = gguf_get_tensor(ctx_ggml, name);
+      struct ggml_tensor *cur = gguf_dup_tensor(new_deberta->ctx_data, ten);
       ggml_set_name(cur, name);
     }
 
@@ -260,7 +237,7 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
       fin.seekg(offset, std::ios::beg);
       if (!fin) {
         fprintf(stderr, "%s: failed to seek for tensor %s\n", __func__, name);
-        bert_free(new_deberta);
+        deberta_free(new_deberta);
         return nullptr;
       }
 
@@ -279,7 +256,7 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
 
   {
     model.word_embeddings = get_tensor(new_deberta->ctx_data, "deberta.embeddings.word_embeddings.weight");
-    model.position_embeddings = get_tensor(new_deberta->ctx_data, "deberta.embeddings.position_embeddings.weight");
+    model.positional_embeddings = get_tensor(new_deberta->ctx_data, "deberta.embeddings.position_embeddings.weight");
     model.ln_e_w = get_tensor(new_deberta->ctx_data, "deberta.embeddings.LayerNorm.weight");
     model.ln_e_b = get_tensor(new_deberta->ctx_data, "deberta.embeddings.LayerNorm.bias");
 

@@ -10,7 +10,7 @@ target_link_libraries(deberta PRIVATE ggml)
 add_executable(main main.cpp)
 target_link_libraries(main PRIVATE deberta ggml)
 
-add_executable(quantize quantize.cpp)
-target_link_libraries(quantize PRIVATE deberta ggml)
+# add_executable(quantize quantize.cpp)
+# target_link_libraries(quantize PRIVATE deberta ggml)
 
 install(TARGETS deberta LIBRARY DESTINATION deberta_cpp)
