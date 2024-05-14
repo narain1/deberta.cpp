@@ -108,7 +108,7 @@ def extract_vocab(vocab):
 
 
 if __name__ == "__main__":
-    with open('../model/config.json', 'r') as f_read:
+    with open('../models/config.json', 'r') as f_read:
         config = json.load(f_read)
 
     print(config)
