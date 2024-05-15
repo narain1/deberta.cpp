@@ -86,6 +86,52 @@ static size_t utf8_len(char src) {
     return lookup[highbits];
 }
 
+void deberta_deallocate_buffers(deberta_ctx *ctx) {
+  if (ctx->compute_buffer) {
+    ggml_backend_buffer_free(ctx->compute_buffer);
+    ctx->compute_buffer = NULL;
+  }
+  if (ctx->compute_alloc) {
+    ggml_gallocr_free(ctx->compute_alloc);
+    ctx->compute_alloc = NULL;
+  }
+}
+
+void deberta_allocate_buffers(deberta_ctx *ctx, int32_t n_max_tokens, int32_t bs) {
+  deberta_deallocate_buffers(ctx);
+
+  ctx->buf_compute_meta.resize(GGML_DEFAULT_GRAPH_SIZE * ggml_tensor_overhead() + ggml_graph_overhead());
+  ctx->compute_alloc = ggml_gallocr_new(ggml_backend_get_default_buffer_type(ctx->backend));
+
+  deberta_tokens tokens(n_max_tokens);
+  deberta_batch batch;
+  for (int i=0; i<bs; ++i) {
+    batch.push_back(tokens);
+  }
+  ggml_cgraph *gf = deberta_build_graph(ctx, batch, true);
+
+  size_t compute_memory_buffer_size = ggml_allocr_alloc_graph(ctx->compute_alloc, gf);
+  ggml_gallocr_free(ctx->compute_alloc);
+
+  ctx->compute_buffer = ggml_backend_alloc_buffer(ctx->backend, compute_memory_buffer_size);
+  ctx->compute_alloc = ggml_allocr_new_from_buffer(ctx->compute_buffer);
+
+  if (verbose >= 1) {
+    fprintf(stderr, "%s: compute allocated memory: %.2f MB\n\n", __func__, compute_memory_buffer_size / 1024.0 / 1024.0);
+  }
+}
+
+
+void deberta_free(deberta_ctx *ctx) {
+  ggml_free(ctx->ctx_data);
+  gguf_free(ctx->ctx_gguf);
+
+  ggml_backend_buffer_free(ctx->weights_buffer);
+  ggml_backend_free(ctx->backend);
+  //ggml_gallocr_free(ctx->compute_alloc);
+  delete ctx;
+}
+
 struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
   struct ggml_context *ctx_ggml = NULL;
 

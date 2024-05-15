@@ -108,13 +108,15 @@ struct deberta_ctx {
   deberta_vocab vocab;
 
   struct ggml_context * ctx_data = NULL;
+  struct gguf_context *ctx_gguf;
 
   std::vector<uint8_t> buf_compute_meta;
 
   ggml_backend_t backend = NULL;
   ggml_backend_buffer_t weights_buffer = NULL;
   ggml_backend_buffer_t compute_buffer = NULL;
-  ggml_gallocr_t * compute_alloc = NULL;
+
+  ggml_gallocr_t *compute_alloc = NULL;
 };
 
 
