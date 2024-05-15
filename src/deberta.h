@@ -145,6 +145,10 @@ DEBERTA_API struct deberta_ctx *deberta_load_from_file(
     bool use_cpu
     );
 
+DEBERTA_API void deberta_tokens_debug(
+    struct deberta_ctx *ctx
+    );
+
 
 #ifdef __cplusplus
 }

@@ -46,6 +46,7 @@ int main() {
     }
 
     // deberta_allocate_buffers(ctx, 4096, 1);
+    deberta_tokens_debug(ctx);
   }
   return 0;
 }

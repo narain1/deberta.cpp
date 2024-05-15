@@ -18,6 +18,7 @@
 #include <vector>
 #include <cstring>
 #include <algorithm>
+#include <iostream>
 
 #define DEBERTA_MAX_NODES 4096
 
@@ -337,4 +338,13 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
 }
 
 
+void deberta_tokens_debug(struct deberta_ctx *ctx) {
+  const deberta_vocab &vocab = ctx->vocab;
+  std::vector<int> a = {1 ,279 ,51888 ,12629 ,265 ,10766 ,718 ,45118 ,268 ,294 ,1007 ,13190 ,33606 ,264 ,4468 ,2445 ,15293 ,2};
+  for (auto i: a) {
+    std::cout << vocab.tokens[i] << std::endl;
+  }
+}
 
+
+roberta_tokens tokenizer_encode(struct deberta_ctx *ctx, 
