@@ -118,8 +118,8 @@ struct deberta_model {
   // struct ggml_tensor *clf_w;
   // struct ggml_tensor *clf_b;
   
-  struct lm_head lm;
-  struct mask_predictions mask;
+  // struct lm_head lm;
+  // struct mask_predictions mask;
 };
 
 

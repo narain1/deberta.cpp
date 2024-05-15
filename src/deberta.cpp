@@ -309,22 +309,22 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
       model.ln_enc_b = get_tensor(new_deberta->ctx_data, "deberta.encoder.LayerNorm.bias");
     }
 
-    {
-      model.lm.b = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.bias");
-      model.lm.d_w = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.dense.weight");
-      model.lm.d_b = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.dense.bias");
-      model.lm.ln_w = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.LayerNorm.weight");
-      model.lm.ln_b = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.LayerNorm.bias");
-    }
+    // {
+    //   model.lm.b = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.bias");
+    //   model.lm.d_w = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.dense.weight");
+    //   model.lm.d_b = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.dense.bias");
+    //   model.lm.ln_w = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.LayerNorm.weight");
+    //   model.lm.ln_b = get_tensor(new_deberta->ctx_data, "lm_predictions.lm_head.LayerNorm.bias");
+    // }
 
-    {
-      model.mask.d_w = get_tensor(new_deberta->ctx_data, "mask_predictions.dense.weight");
-      model.mask.d_b = get_tensor(new_deberta->ctx_data, "mask_predictions.dense.bias");
-      model.mask.ln_w = get_tensor(new_deberta->ctx_data, "mask_predictions.LayerNorm.weight");
-      model.mask.ln_b = get_tensor(new_deberta->ctx_data, "mask_predictions.LayerNorm.bias");
-      model.mask.clf_w = get_tensor(new_deberta->ctx_data, "mask_predictions.classifier.weight");
-      model.mask.clf_b = get_tensor(new_deberta->ctx_data, "mask_predictions.classifer.bias");
-    }
+    // {
+    //   model.mask.d_w = get_tensor(new_deberta->ctx_data, "mask_predictions.dense.weight");
+    //  model.mask.d_b = get_tensor(new_deberta->ctx_data, "mask_predictions.dense.bias");
+    //  model.mask.ln_w = get_tensor(new_deberta->ctx_data, "mask_predictions.LayerNorm.weight");
+    //  model.mask.ln_b = get_tensor(new_deberta->ctx_data, "mask_predictions.LayerNorm.bias");
+    //  model.mask.clf_w = get_tensor(new_deberta->ctx_data, "mask_predictions.classifier.weight");
+    //  model.mask.clf_b = get_tensor(new_deberta->ctx_data, "mask_predictions.classifer.bias");
+   // }
   }
 
     // comp model arch
