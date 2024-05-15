@@ -111,7 +111,9 @@ if __name__ == "__main__":
     with open('../models/config.json', 'r') as f_read:
         config = json.load(f_read)
 
-    print(config)
+    for k,v in config.items():
+        print(f'{k:32} = {v}')
+
     vocab = SentencePieceVocab(Path("../models"))
     model = torch.load("../models/pytorch_model.bin")
 
@@ -149,6 +151,7 @@ if __name__ == "__main__":
     gguf_writer.add_token_list(tokens)
 
     for n, p in model.items():
+        if n.startswith(("lm_predictions", "mask_predictions")): continue
         if 'LayerNorm' in n or 'bias' in n:
             dtype = torch.float32
         else:
