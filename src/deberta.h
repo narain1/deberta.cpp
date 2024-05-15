@@ -25,7 +25,7 @@
 #define KEY_SUBWORD_PREFIX "tokenizer.ggml.subword_prefix"
 #define KEY_TOKEN_LIST "tokenizer.ggml.tokens"
 
-#define BERT_API __attribute__ ((visibility ("default")))
+#define DEBERTA_API __attribute__ ((visibility ("default")))
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,6 +69,23 @@ struct deberta_layer {
   struct ggml_tensor *ln_out_b;
 };
 
+struct lm_head {
+  struct ggml_tensor *b;
+  struct ggml_tensor *d_w;
+  struct ggml_tensor *d_b;
+  struct ggml_tensor *ln_w;
+  struct ggml_tensor *ln_b;
+};
+
+struct mask_predictions {
+  struct ggml_tensor *d_w;
+  struct ggml_tensor *d_b;
+  struct ggml_tensor *ln_w;
+  struct ggml_tensor *ln_b;
+  struct ggml_tensor *clf_w;
+  struct ggml_tensor *clf_b;
+};
+
 struct deberta_vocab {
   deberta_token pad_id;
   deberta_token unk_id;
@@ -98,8 +115,11 @@ struct deberta_model {
   struct ggml_tensor *rel_embeddings;
   struct ggml_tensor *ln_enc_w;
   struct ggml_tensor *ln_enc_b;
-  struct ggml_tensor *clf_w;
-  struct ggml_tensor *clf_b;
+  // struct ggml_tensor *clf_w;
+  // struct ggml_tensor *clf_b;
+  
+  struct lm_head lm;
+  struct mask_predictions mask;
 };
 
 
@@ -118,6 +138,12 @@ struct deberta_ctx {
 
   ggml_gallocr_t *compute_alloc = NULL;
 };
+
+
+DEBERTA_API struct deberta_ctx *deberta_load_from_file(
+    const char *fname,
+    bool use_cpu
+    );
 
 
 #ifdef __cplusplus

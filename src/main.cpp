@@ -37,15 +37,15 @@ void deberta_print_usage(char **argv, const deberta_options &options) {
 
 int main() {
   deberta_ctx *ctx;
-  std::string file_name = "src/deberta.gguf";
+  std::string file_name = "src/deberta.ggml";
   {
-    ctx = deberta_load_from_file(file_name, true);
+    ctx = deberta_load_from_file(file_name.c_str(), true);
     if (ctx == nullptr) {
       fprintf(stderr, "%s: failed to load model from '%s'\n", __func__, file_name);
       return 1;
     }
 
-    deberta_allocate_buffers(ctx, 4096, 1);
+    // deberta_allocate_buffers(ctx, 4096, 1);
   }
   return 0;
 }
