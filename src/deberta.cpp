@@ -370,7 +370,7 @@ deberta_tokens tokenizer_encode(struct deberta_ctx *ctx, const std::string x) {
   std::string processed = "▁" + std::regex_replace(normalized, std::regex(" "), "▁") + "▁";
   deberta_tokens acc = {ctx->vocab.bos_id};
   size_t start_idx = 0;
-  while (start_idx < processed.size()) {
+  while (start_idx < processed.length()) {
     std::string buffer = processed.substr(start_idx, 1);
     size_t match_idx = 0;
     for (size_t idx=1; idx < std::min(max_token_length, static_cast<deberta_token>(processed.size() - start_idx)); ++idx) {
@@ -380,8 +380,11 @@ deberta_tokens tokenizer_encode(struct deberta_ctx *ctx, const std::string x) {
         match_idx = idx;
       }
     }
-    std::cout << vocab.at(processed.substr(start_idx, match_idx)) << std::endl;
-    acc.push_back(vocab.at(processed.substr(start_idx, match_idx)));
+    if (match_idx > 0) {
+      acc.push_back(vocab.at(processed.substr(start_idx, match_idx)));
+    } else {
+      match_idx += 1;
+    }
     start_idx += match_idx;
   }
   acc.back() = 2;
