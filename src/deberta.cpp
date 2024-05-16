@@ -347,7 +347,7 @@ void deberta_tokens_debug(struct deberta_ctx *ctx) {
   }
 }
 
-std::string sentence_piece_normalization(const std::string &text) {
+std::string sentence_piece_normalization(const std::string text) {
   std::string normalized_text = text;
   normalized_text = std::regex_replace(normalized_text, std::regex("[\\n\\t]+"), " ");
   normalized_text = std::regex_replace(normalized_text, std::regex("[\\x00-\\x1F\\x7F]+"), "");
@@ -361,7 +361,7 @@ std::string sentence_piece_normalization(const std::string &text) {
   return normalized_text;
 }
 
-deberta_tokens tokenizer_encode(struct deberta_ctx *ctx, const std::string &x) {
+deberta_tokens tokenizer_encode(struct deberta_ctx *ctx, const std::string x) {
   std::string normalized = sentence_piece_normalization(x);
   // const deberta_vocab &vocab = ctx->vocab;
   const int32_t max_token_length = ctx->vocab.max_token_length;
@@ -380,6 +380,7 @@ deberta_tokens tokenizer_encode(struct deberta_ctx *ctx, const std::string &x) {
         match_idx = idx;
       }
     }
+    std::cout << vocab.at(processed.substr(start_idx, match_idx)) << std::endl;
     acc.push_back(vocab.at(processed.substr(start_idx, match_idx)));
     start_idx += match_idx;
   }
