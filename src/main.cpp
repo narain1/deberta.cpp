@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
+#include <iostream>
 
 struct deberta_options {
   const char *model = nullptr;
@@ -47,6 +48,10 @@ int main() {
 
     // deberta_allocate_buffers(ctx, 4096, 1);
     deberta_tokens_debug(ctx);
+
+    std::string test = "The Remarkable Journey of Ana de Armas: From Cuban Shores to Hollywood Stardom";
+    deberta_tokens tokens = tokenizer_encode(ctx, test);
+    std::cout << tokens.size() << std::endl;
   }
   return 0;
 }

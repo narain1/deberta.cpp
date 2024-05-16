@@ -91,6 +91,7 @@ struct deberta_vocab {
   deberta_token unk_id;
   deberta_token bos_id;
   deberta_token eos_id;
+  int32_t max_token_length = 1024;
 
   std::string word_prefix;
   std::string subword_prefix;
@@ -147,6 +148,11 @@ DEBERTA_API struct deberta_ctx *deberta_load_from_file(
 
 DEBERTA_API void deberta_tokens_debug(
     struct deberta_ctx *ctx
+    );
+
+DEBERTA_API deberta_tokens tokenizer_encode(
+    struct deberta_ctx *ctx,
+    std::string text
     );
 
 
