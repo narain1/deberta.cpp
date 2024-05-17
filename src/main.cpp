@@ -41,6 +41,7 @@ int main() {
   std::string file_name = "src/deberta.ggml";
   {
     ctx = deberta_load_from_file(file_name.c_str(), true);
+    auto &vocab = ctx->vocab.id_to_token;
     if (ctx == nullptr) {
       fprintf(stderr, "%s: failed to load model from '%s'\n", __func__, file_name);
       return 1;
@@ -55,6 +56,11 @@ int main() {
       std::cout << i << ", ";
     }
     std::cout << std::endl;
+
+    for (auto i: tokens) {
+      std::cout << vocab[i] << std::endl;
+    }
+      
   }
   return 0;
 }

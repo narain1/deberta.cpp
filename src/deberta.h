@@ -134,9 +134,8 @@ struct deberta_ctx {
   std::vector<uint8_t> buf_compute_meta;
 
   ggml_backend_t backend = NULL;
-  ggml_backend_buffer_t weights_buffer = NULL;
+  ggml_backend_buffer_t params_buffer = NULL;
   ggml_backend_buffer_t compute_buffer = NULL;
-
   ggml_gallocr_t *compute_alloc = NULL;
 };
 

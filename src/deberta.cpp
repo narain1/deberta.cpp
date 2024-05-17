@@ -391,3 +391,75 @@ deberta_tokens tokenizer_encode(struct deberta_ctx *ctx, const std::string x) {
   return acc;
 }
 
+ggml_cgraph *deberta_build_graph(struct deberta_ctx *ctx, deberta_batch batch, bool normalize) {
+  const deberta_vocab &vocab = ctx->vocab;
+  const deberta_token pad_id = vocab.pad_id;
+
+  const deberta_model &model = ctx->model;
+  const deberta_hparams &hparams = model.hparams;
+
+  const int n_embed = hparams.embd;
+  const int n_layer = hparams.n_layer;
+  const int n_head = hparams.n_head;
+  const float layer_norm_eps = hparams.layer_norm_eps;
+  const int d_head = n_embed / n_head;
+
+  int n_bs = batch.size();
+  int cur_max_len = 0;
+
+  for (uint64_t ba=0; ba < batch.size(); ba++) {
+    int n = batch[ba].size();
+    if (n > cur_max_len)
+      cur_max_len = n;
+  }
+
+  if (cur_max_len > n_max_tokens) {
+    fprintf(stderr, "too many tokens, max is %d, got %d\n", n_max_tokens, cur_max_len);
+    return nullptr;
+  }
+
+  struct ggml_init_params params = {
+      /*.mem_size   =*/ ctx->buf_compute_meta.size(),
+      /*.mem_buffer =*/ ctx->buf_compute_meta.data(),
+      /*.no_alloc   =*/ true,
+    };
+
+  struct ggml_context *ctx0 = ggml_init(params);
+  struct ggml_cgraph *gf = ggml_new_graph_custom(ctx0, DEBERTA_MAX_NODES, false);
+
+  struct ggml_tensor *token_layer
+
+void deberta_deallocate_buffers(struct deberta_ctx *ctx) {
+  if (ctx->params_buffer) {
+    ggml_compute_buffer_free(ctx->params_buffer);
+    ctx->params = NULL;
+  }
+  if (ctx->compute_alloc) {
+    ggml_allocr_free(ctx->compute_alloc);
+    ctx->compute_alloc = NULL;
+  }
+}
+
+void deberta_allocate_buffers(deberta_ctx *ctx, int32_t bs) {
+  deberta_allocate_buffers(ctx);
+  int32_t max_token_length = ctx->vocab.max_token_length;
+
+  ctx->buf_compute_meta.resize(GGML_DEFAULT_GRAPH_SIZE * ggml_tensor_overhead() + ggml_graph_overhead());
+  ctx->compute_alloc = ggml_allocr_new_measure_from_backend(ctx->backend);
+
+  deberta_tokens tokens(max_token_length);
+  deberta_batch batch;
+  for (int i=0; i<bs; ++i) {
+    batch.push_back(tokens);
+  }
+
+  size_t compute_memory_buffer_size ggml_allocr_alloc_graph(ctx->compute_alloc, gf);
+  ggml_allocr_free(ctx->compute_alloc);
+
+  ctx->compute_buffer = ggml_backend_alloc_buffer(ctx->backend, compute_memory_buffer_size);
+  ctx->compute_alloc = ggml_allocr_new_from_buffer(ctx->compute_buffer);
+
+  if (verbose >= 1) {
+    fprintf(stderr, "%s: compute allocated memory: %.2f MB\n\n", __func__, compute_memory_buffer_size);
+  }
+}
