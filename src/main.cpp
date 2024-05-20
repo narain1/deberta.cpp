@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
+#include <iostream>
 
 struct deberta_options {
   const char *model = nullptr;
@@ -40,12 +41,26 @@ int main() {
   std::string file_name = "src/deberta.ggml";
   {
     ctx = deberta_load_from_file(file_name.c_str(), true);
+    auto &vocab = ctx->vocab.id_to_token;
     if (ctx == nullptr) {
       fprintf(stderr, "%s: failed to load model from '%s'\n", __func__, file_name);
       return 1;
     }
 
     // deberta_allocate_buffers(ctx, 4096, 1);
+    // deberta_tokens_debug(ctx);
+
+    std::string test = "The Remarkable Journey of Ana de Armas: From Cuban Shores to Hollywood Stardom";
+    deberta_tokens tokens = tokenizer_encode(ctx, test);
+    for (auto i: tokens) {
+      std::cout << i << ", ";
+    }
+    std::cout << std::endl;
+
+    for (auto i: tokens) {
+      std::cout << vocab[i] << std::endl;
+    }
+      
   }
   return 0;
 }

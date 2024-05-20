@@ -18,6 +18,8 @@
 #include <vector>
 #include <cstring>
 #include <algorithm>
+#include <iostream>
+#include <regex>
 
 #define DEBERTA_MAX_NODES 4096
 
@@ -337,4 +339,127 @@ struct deberta_ctx * deberta_load_from_file(const char *fname, bool use_cpu) {
 }
 
 
+void deberta_tokens_debug(struct deberta_ctx *ctx) {
+  const deberta_vocab &vocab = ctx->vocab;
+  std::vector<int> a = {1 ,279 ,51888 ,12629 ,265 ,10766 ,718 ,45118 ,268 ,294 ,1007 ,13190 ,33606 ,264 ,4468 ,2445 ,15293 ,2};
+  for (auto i: a) {
+    std::cout << vocab.tokens[i] << std::endl;
+  }
+}
 
+std::string sentence_piece_normalization(const std::string text) {
+  std::string normalized_text = text;
+  normalized_text = std::regex_replace(normalized_text, std::regex("[\\n\\t]+"), " ");
+  normalized_text = std::regex_replace(normalized_text, std::regex("[\\x00-\\x1F\\x7F]+"), "");
+  normalized_text = std::regex_replace(normalized_text, std::regex("\\s+"), " ");
+  if (!normalized_text.empty() && normalized_text[normalized_text.size() - 1] == ' ') {
+    normalized_text.erase(normalized_text.size() - 1);
+  }
+  if (!normalized_text.empty() && normalized_text[0] == ' ') {
+    normalized_text.erase(0, 1);
+  }
+  return normalized_text;
+}
+
+deberta_tokens tokenizer_encode(struct deberta_ctx *ctx, const std::string x) {
+  std::string normalized = sentence_piece_normalization(x);
+  // const deberta_vocab &vocab = ctx->vocab;
+  const int32_t max_token_length = ctx->vocab.max_token_length;
+  const std::map<deberta_token, std::string> &id_to_token = ctx->vocab.id_to_token;
+  const std::map<std::string, deberta_token> &vocab = ctx->vocab.token_to_id;
+  std::string processed = "▁" + std::regex_replace(normalized, std::regex(" "), "▁") + "▁";
+  deberta_tokens acc = {ctx->vocab.bos_id};
+  size_t start_idx = 0;
+  while (start_idx < processed.length()) {
+    std::string buffer = processed.substr(start_idx, 1);
+    size_t match_idx = 0;
+    for (size_t idx=1; idx < std::min(max_token_length, static_cast<deberta_token>(processed.size() - start_idx)); ++idx) {
+      std::string temp = processed.substr(start_idx, idx);
+      if (vocab.find(temp) != vocab.end()) {
+        buffer = temp;
+        match_idx = idx;
+      }
+    }
+    if (match_idx > 0) {
+      acc.push_back(vocab.at(processed.substr(start_idx, match_idx)));
+    } else {
+      match_idx += 1;
+    }
+    start_idx += match_idx;
+  }
+  acc.back() = 2;
+  return acc;
+}
+
+ggml_cgraph *deberta_build_graph(struct deberta_ctx *ctx, deberta_batch batch, bool normalize) {
+  const deberta_vocab &vocab = ctx->vocab;
+  const deberta_token pad_id = vocab.pad_id;
+
+  const deberta_model &model = ctx->model;
+  const deberta_hparams &hparams = model.hparams;
+
+  const int n_embed = hparams.embd;
+  const int n_layer = hparams.n_layer;
+  const int n_head = hparams.n_head;
+  const float layer_norm_eps = hparams.layer_norm_eps;
+  const int d_head = n_embed / n_head;
+
+  int n_bs = batch.size();
+  int cur_max_len = 0;
+
+  for (uint64_t ba=0; ba < batch.size(); ba++) {
+    int n = batch[ba].size();
+    if (n > cur_max_len)
+      cur_max_len = n;
+  }
+
+  if (cur_max_len > n_max_tokens) {
+    fprintf(stderr, "too many tokens, max is %d, got %d\n", n_max_tokens, cur_max_len);
+    return nullptr;
+  }
+
+  struct ggml_init_params params = {
+      /*.mem_size   =*/ ctx->buf_compute_meta.size(),
+      /*.mem_buffer =*/ ctx->buf_compute_meta.data(),
+      /*.no_alloc   =*/ true,
+    };
+
+  struct ggml_context *ctx0 = ggml_init(params);
+  struct ggml_cgraph *gf = ggml_new_graph_custom(ctx0, DEBERTA_MAX_NODES, false);
+
+  struct ggml_tensor *token_layer
+
+void deberta_deallocate_buffers(struct deberta_ctx *ctx) {
+  if (ctx->params_buffer) {
+    ggml_compute_buffer_free(ctx->params_buffer);
+    ctx->params = NULL;
+  }
+  if (ctx->compute_alloc) {
+    ggml_allocr_free(ctx->compute_alloc);
+    ctx->compute_alloc = NULL;
+  }
+}
+
+void deberta_allocate_buffers(deberta_ctx *ctx, int32_t bs) {
+  deberta_allocate_buffers(ctx);
+  int32_t max_token_length = ctx->vocab.max_token_length;
+
+  ctx->buf_compute_meta.resize(GGML_DEFAULT_GRAPH_SIZE * ggml_tensor_overhead() + ggml_graph_overhead());
+  ctx->compute_alloc = ggml_allocr_new_measure_from_backend(ctx->backend);
+
+  deberta_tokens tokens(max_token_length);
+  deberta_batch batch;
+  for (int i=0; i<bs; ++i) {
+    batch.push_back(tokens);
+  }
+
+  size_t compute_memory_buffer_size ggml_allocr_alloc_graph(ctx->compute_alloc, gf);
+  ggml_allocr_free(ctx->compute_alloc);
+
+  ctx->compute_buffer = ggml_backend_alloc_buffer(ctx->backend, compute_memory_buffer_size);
+  ctx->compute_alloc = ggml_allocr_new_from_buffer(ctx->compute_buffer);
+
+  if (verbose >= 1) {
+    fprintf(stderr, "%s: compute allocated memory: %.2f MB\n\n", __func__, compute_memory_buffer_size);
+  }
+}

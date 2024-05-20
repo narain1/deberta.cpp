@@ -91,6 +91,7 @@ struct deberta_vocab {
   deberta_token unk_id;
   deberta_token bos_id;
   deberta_token eos_id;
+  int32_t max_token_length = 1024;
 
   std::string word_prefix;
   std::string subword_prefix;
@@ -133,9 +134,8 @@ struct deberta_ctx {
   std::vector<uint8_t> buf_compute_meta;
 
   ggml_backend_t backend = NULL;
-  ggml_backend_buffer_t weights_buffer = NULL;
+  ggml_backend_buffer_t params_buffer = NULL;
   ggml_backend_buffer_t compute_buffer = NULL;
-
   ggml_gallocr_t *compute_alloc = NULL;
 };
 
@@ -143,6 +143,15 @@ struct deberta_ctx {
 DEBERTA_API struct deberta_ctx *deberta_load_from_file(
     const char *fname,
     bool use_cpu
+    );
+
+DEBERTA_API void deberta_tokens_debug(
+    struct deberta_ctx *ctx
+    );
+
+DEBERTA_API deberta_tokens tokenizer_encode(
+    struct deberta_ctx *ctx,
+    std::string text
     );
 
 
