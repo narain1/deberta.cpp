@@ -1,4 +1,7 @@
 models/
+model/
 build/
 
 *.ggml
+*.gguf
+*.txt
