@@ -427,7 +427,16 @@ ggml_cgraph *deberta_build_graph(struct deberta_ctx *ctx, deberta_batch batch, b
   struct ggml_context *ctx0 = ggml_init(params);
   struct ggml_cgraph *gf = ggml_new_graph_custom(ctx0, DEBERTA_MAX_NODES, false);
 
-  struct ggml_tensor *token_layer
+  struct ggml_tensor *token_layer = ggml_new_tensor1d(ctx0, GGML_TYPE_I32, cur_max_len * n_bs);
+  struct ggml_tensor *token_types = ggml_new_tensor1d(ctx0, GGML_TYPE_I32, cur_max_len * n_bs); // nor being used as type_vocab_size = 0
+  struct ggml_tensor *pos_tokens = ggml_new_tensor1d(ctx0, GGML_TYPE_I32, cur_max_len * n_bs);
+
+  struct ggml_tensor *pad_mask = ggml_new_tensor4d(ctx0, GGML_TYPE_F32, 1, cur_max_len, n_bs);
+  struct ggml_tensor *sum = ggml_new_tensor3d(ctx0, GGML_TYPE_F32, cur_max_len, 1, n_bs);
+  struct ggml_tensor *minus_one = ggml_new_tensor1d(ctx0, GGML_TYPE_F32, 1);
+
+}
+
 
 void deberta_deallocate_buffers(struct deberta_ctx *ctx) {
   if (ctx->params_buffer) {
